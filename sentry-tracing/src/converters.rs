@@ -209,44 +209,11 @@ fn contexts_from_event(
     context
 }
 
-/// Creates an [`Event`] from a given [`tracing_core::Event`]
-pub fn event_from_event<'context, S>(
+fn exceptions_from_event(
     event: &tracing_core::Event,
-    ctx: impl Into<Option<Context<'context, S>>>,
-) -> Event<'static>
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-{
-    let (message, mut visitor) = extract_event_data_with_context(event, ctx.into());
-
-    Event {
-        logger: Some(event.metadata().target().to_owned()),
-        level: convert_tracing_level(event.metadata().level()),
-        message,
-        tags: tags_from_event(&mut visitor.json_values),
-        contexts: contexts_from_event(event, visitor.json_values),
-        ..Default::default()
-    }
-}
-
-/// Creates an exception [`Event`] from a given [`tracing_core::Event`]
-pub fn exception_from_event<'context, S>(
-    event: &tracing_core::Event,
-    ctx: impl Into<Option<Context<'context, S>>>,
-) -> Event<'static>
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-{
-    // Exception records in Sentry need a valid type, value and full stack trace to support
-    // proper grouping and issue metadata generation. tracing_core::Record does not contain sufficient
-    // information for this. However, it may contain a serialized error which we can parse to emit
-    // an exception record.
-    let (mut message, visitor) = extract_event_data_with_context(event, ctx.into());
-    let FieldVisitor {
-        mut exceptions,
-        mut json_values,
-    } = visitor;
-
+    message: &mut Option<String>,
+    mut exceptions: Vec<Exception>,
+) -> sentry_core::protocol::Values<Exception> {
     // If there are both a message and an exception, then add the message as synthetic wrapper
     // around the exception to support proper grouping. If configured, also add the current stack
     // trace to this exception directly, since it points to the place where the exception is
@@ -287,11 +254,53 @@ where
         );
     }
 
+    exceptions.into()
+}
+
+/// Creates an [`Event`] from a given [`tracing_core::Event`]
+pub fn event_from_event<'context, S>(
+    event: &tracing_core::Event,
+    ctx: impl Into<Option<Context<'context, S>>>,
+) -> Event<'static>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    let (mut message, mut visitor) = extract_event_data_with_context(event, ctx.into());
+
     Event {
         logger: Some(event.metadata().target().to_owned()),
         level: convert_tracing_level(event.metadata().level()),
+        exception: exceptions_from_event(event, &mut message, visitor.exceptions),
         message,
-        exception: exceptions.into(),
+        tags: tags_from_event(&mut visitor.json_values),
+        contexts: contexts_from_event(event, visitor.json_values),
+        ..Default::default()
+    }
+}
+
+/// Creates an exception [`Event`] from a given [`tracing_core::Event`]
+pub fn exception_from_event<'context, S>(
+    event: &tracing_core::Event,
+    ctx: impl Into<Option<Context<'context, S>>>,
+) -> Event<'static>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    // Exception records in Sentry need a valid type, value and full stack trace to support
+    // proper grouping and issue metadata generation. tracing_core::Record does not contain sufficient
+    // information for this. However, it may contain a serialized error which we can parse to emit
+    // an exception record.
+    let (mut message, visitor) = extract_event_data_with_context(event, ctx.into());
+    let FieldVisitor {
+        exceptions,
+        mut json_values,
+    } = visitor;
+
+    Event {
+        logger: Some(event.metadata().target().to_owned()),
+        level: convert_tracing_level(event.metadata().level()),
+        exception: exceptions_from_event(event, &mut message, exceptions),
+        message,
         tags: tags_from_event(&mut json_values),
         contexts: contexts_from_event(event, json_values),
         ..Default::default()
