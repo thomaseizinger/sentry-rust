@@ -248,7 +248,7 @@ where
     // proper grouping and issue metadata generation. tracing_core::Record does not contain sufficient
     // information for this. However, it may contain a serialized error which we can parse to emit
     // an exception record.
-    let (mut message, visitor) = extract_event_data_with_context(event, ctx.into());
+    let (message, visitor) = extract_event_data_with_context(event, ctx.into());
     let FieldVisitor {
         mut exceptions,
         mut json_values,
@@ -271,7 +271,7 @@ where
 
         let exception = Exception {
             ty: level_to_exception_type(event.metadata().level()).to_owned(),
-            value: message.take(),
+            value: message.clone(),
             module: event.metadata().module_path().map(str::to_owned),
             stacktrace: thread.stacktrace,
             raw_stacktrace: thread.raw_stacktrace,
