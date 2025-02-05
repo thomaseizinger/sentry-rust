@@ -283,7 +283,7 @@ where
             }),
         };
 
-        exceptions.push(exception);
+        exceptions.insert(0, exception);
     }
 
     if let Some(exception) = exceptions.last_mut() {
