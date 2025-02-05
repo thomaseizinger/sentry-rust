@@ -18,11 +18,11 @@ fn synthetic_exception_should_have_same_name_as_event() {
     };
 
     assert_eq!(event.exception.len(), 2);
+    assert_eq!(event.exception[0].value, Some("boom!".to_owned()));
     assert_eq!(
-        event.exception[0].value,
+        event.exception[1].value,
         Some("Something failed".to_owned())
     );
-    assert_eq!(event.exception[1].value, Some("boom!".to_owned()));
     assert_eq!(event.message, Some("boom!".to_owned()));
 }
 
