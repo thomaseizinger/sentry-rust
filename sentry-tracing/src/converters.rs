@@ -278,6 +278,7 @@ where
             thread_id: thread.id,
             mechanism: Some(Mechanism {
                 synthetic: Some(true),
+                ty: "tracing".to_owned(),
                 ..Mechanism::default()
             }),
         };
